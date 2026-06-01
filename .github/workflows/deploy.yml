@@ -5,15 +5,15 @@ on:
     branches:
       - main
   workflow_dispatch:
-  inputs:
-    environment:
-      description: "Select Environment"
-      required: true
-      type: choice
-      options:
-        - dev
-        - uat
-        - stg
+    inputs:
+      environment:
+        description: "Select Environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - uat
+          - stg
 jobs:
   deploy:
     runs-on: ubuntu-latest
