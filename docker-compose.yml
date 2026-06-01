@@ -4,7 +4,7 @@ services:
   # MySQL Database
   mysql:
     image: mysql:8.0
-    container_name: student_mysql
+    container_name: student_mysql_1
     environment:
       MYSQL_ROOT_PASSWORD: password123
       MYSQL_DATABASE: student_registration
