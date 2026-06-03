@@ -29,11 +29,3 @@ resource "aws_instance" "student_ec2" {
     Name = "student-app-server"
   }
 }
-resource "aws_eip" "student_eip" {
-  domain = "vpc"
-}
-
-resource "aws_eip_association" "student_eip_assoc" {
-  instance_id   = aws_instance.student_ec2.id
-  allocation_id = aws_eip.student_eip.id
-}
