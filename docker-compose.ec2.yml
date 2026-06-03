@@ -20,7 +20,7 @@ services:
       - student_network
 
   backend:
-    image: aasthakumarii/student-backend:latest
+    image: 500782030335.dkr.ecr.ap-south-1.amazonaws.com/student-backend
     container_name: student_backend
 
     environment:
@@ -43,7 +43,7 @@ services:
       - student_network
 
   frontend:
-    image: aasthakumarii/student-frontend:latest
+    image: 500782030335.dkr.ecr.ap-south-1.amazonaws.com/student-frontend
     container_name: student_frontend
 
     ports:
