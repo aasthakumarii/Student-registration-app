@@ -58,7 +58,13 @@ jobs:
       - name: Get EC2 IP
         id: ec2
         run: |
-          echo "ec2_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+          IP=$(terraform output -raw ec2_public_ip)
+          echo "Found IP: $IP"
+          echo "ec2_ip=$IP" >> $GITHUB_OUTPUT
+
+      - name: Verify EC2 IP Output
+        run: |
+          echo "IP from Terraform: ${{ steps.ec2.outputs.ec2_ip }}"
 
       - name: Show Outputs
         run: terraform output
@@ -114,6 +120,10 @@ jobs:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/student-backend:latest
           severity: CRITICAL
           ignore-unfixed: true
+
+      - name: Debug Output
+        run: |
+          echo "Terraform Output = ${{ needs.terraform-create.outputs.ec2_ip }}"
 
       - name: Copy Docker Compose File
         uses: appleboy/scp-action@master
