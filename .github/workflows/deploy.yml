@@ -58,6 +58,8 @@ jobs:
   deploy:
     if: github.event.inputs.action == 'create'
 
+    needs: terraform-create
+
     runs-on: ubuntu-latest
 
     steps:

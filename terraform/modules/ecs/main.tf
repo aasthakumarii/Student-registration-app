@@ -48,7 +48,7 @@ resource "aws_ecs_task_definition" "student" {
 
   container_definitions = jsonencode([
     {
-  name  = "mysql"
+  name  = "mysql-student"
   image = "mysql:8.0"
 
   essential = true
@@ -82,48 +82,14 @@ resource "aws_ecs_task_definition" "student" {
   }
 },
 {
-  name  = "mysql"
-  image = "mysql:8.0"
-
-  essential = true
-
-  environment = [
-    {
-      name  = "MYSQL_ROOT_PASSWORD"
-      value = "password123"
-    },
-    {
-      name  = "MYSQL_DATABASE"
-      value = "student_registration"
-    }
-  ]
-
-  portMappings = [
-    {
-      containerPort = 3306
-      protocol      = "tcp"
-    }
-  ]
-
-  logConfiguration = {
-    logDriver = "awslogs"
-
-    options = {
-      awslogs-group         = "/ecs/student-registration"
-      awslogs-region        = "ap-south-1"
-      awslogs-stream-prefix = "mysql"
-    }
-  }
-},
-{
-  name  = "backend"
+  name  = "backend-student"
   image = var.backend_image
 
   essential = true
 
   dependsOn = [
     {
-      containerName = "mysql"
+      containerName = "mysql-student"
       condition     = "START"
     }
   ]
@@ -169,14 +135,14 @@ resource "aws_ecs_task_definition" "student" {
   }
 },
 {
-  name  = "frontend"
+  name  = "frontend-student"
   image = var.frontend_image
 
   essential = true
 
   dependsOn = [
     {
-      containerName = "backend"
+      containerName = "backend-student"
       condition     = "START"
     }
   ]
