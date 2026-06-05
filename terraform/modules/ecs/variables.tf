@@ -1,9 +1,9 @@
 variable "cluster_name" {
-  default = "student-cluster"
+  default = "3T-ECS"
 }
 
 variable "task_family" {
-  default = "student-app-task"
+  default = "3T-ECS-Task"
 }
 
 variable "cpu" {
@@ -19,7 +19,7 @@ variable "mysql_image" {
 }
 
 variable "root_pass" {
-  default = "rootpass123"
+  default = "rootpass"
 }
 
 variable "mysql_db" {
@@ -27,28 +27,27 @@ variable "mysql_db" {
 }
 
 variable "mysql_user" {
-  default = "root"
+  default = "appuser"
 }
 
 variable "mysql_pass" {
-  default = "rootpass123"
+  default = "password123"
 }
 
 variable "backend_image" {
-  type = string
+  default = "500782030335.dkr.ecr.ap-south-1.amazonaws.com/backend-app:latest"
 }
 
 variable "db_host" {
-  default = "127.0.0.1"
-  description = "Use 127.0.0.1 for ECS Fargate awsvpc mode - all containers share localhost"
+  default = "localhost"
 }
 
 variable "db_user" {
-  default = "root"
+  default = "appuser"
 }
 
 variable "db_pass" {
-  default = "rootpass123"
+  default = "password123"
 }
 
 variable "db_name" {
@@ -56,11 +55,11 @@ variable "db_name" {
 }
 
 variable "frontend_image" {
-  type = string
+  default = "500782030335.dkr.ecr.ap-south-1.amazonaws.com/frontend-app:latest"
 }
 
 variable "service_name" {
-  default = "student-service"
+  default = "3T-ECS-Service"
 }
 
 variable "desired_count" {
@@ -73,9 +72,4 @@ variable "subnet_ids" {
 
 variable "security_group_id" {
   type = string
-}
-
-variable "aws_region" {
-  type    = string
-  default = "ap-south-1"
 }
