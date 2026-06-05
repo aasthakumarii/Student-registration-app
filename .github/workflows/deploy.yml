@@ -55,75 +55,75 @@ jobs:
       - name: Show Outputs
         run: terraform output
 
-deploy:
-  if: github.event.inputs.action == 'create'
+  deploy:
+    if: github.event.inputs.action == 'create'
 
-  runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
 
-  steps:
+    steps:
 
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Login To Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+      - name: Login To Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build Backend Image
-      run: |
-        docker build \
-        -t ${{ steps.login-ecr.outputs.registry }}/student-backend:latest \
-        ./backend
+      - name: Build Backend Image
+        run: |
+          docker build \
+          -t ${{ steps.login-ecr.outputs.registry }}/student-backend:latest \
+          ./backend
 
-    - name: Build Frontend Image
-      run: |
-        docker build \
-        -t ${{ steps.login-ecr.outputs.registry }}/student-frontend:latest \
-        ./frontend
+      - name: Build Frontend Image
+        run: |
+          docker build \
+          -t ${{ steps.login-ecr.outputs.registry }}/student-frontend:latest \
+          ./frontend
 
-    - name: Push Backend Image
-      run: |
-        docker push \
-        ${{ steps.login-ecr.outputs.registry }}/student-backend:latest
+      - name: Push Backend Image
+        run: |
+          docker push \
+          ${{ steps.login-ecr.outputs.registry }}/student-backend:latest
 
-    - name: Push Frontend Image
-      run: |
-        docker push \
-        ${{ steps.login-ecr.outputs.registry }}/student-frontend:latest
+      - name: Push Frontend Image
+        run: |
+          docker push \
+          ${{ steps.login-ecr.outputs.registry }}/student-frontend:latest
 
-    - name: Trivy Scan
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: ${{ steps.login-ecr.outputs.registry }}/student-backend:latest
-        severity: CRITICAL
-        ignore-unfixed: true
+      - name: Trivy Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/student-backend:latest
+          severity: CRITICAL
+          ignore-unfixed: true
 
-    - name: Wait For ECS Service
-      run: sleep 60
+      - name: Wait For ECS Service
+        run: sleep 60
 
-    - name: Force ECS Deployment
-      run: |
-        aws ecs update-service \
-          --cluster student-cluster \
-          --service student-service \
-          --force-new-deployment
+      - name: Force ECS Deployment
+        run: |
+          aws ecs update-service \
+            --cluster student-cluster \
+            --service student-service \
+            --force-new-deployment
 
-    - name: Wait For Deployment
-      run: |
-        aws ecs wait services-stable \
-          --cluster student-cluster \
-          --services student-service
+      - name: Wait For Deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster student-cluster \
+            --services student-service
 
-    - name: Deployment Complete
-      run: |
-        echo "ECS deployment completed successfully"
+      - name: Deployment Complete
+        run: |
+          echo "ECS deployment completed successfully"
 
   terraform-destroy:
     if: github.event.inputs.action == 'destroy'
