@@ -153,6 +153,7 @@ resource "aws_ecs_task_definition" "demoapp" {
     }
   ])
 }
+
 resource "aws_ecs_service" "demo_service" {
   name            = var.service_name
   cluster         = aws_ecs_cluster.main.id
@@ -167,20 +168,12 @@ resource "aws_ecs_service" "demo_service" {
     assign_public_ip = true
   }
 
-  # Allow external changes without triggering replacement
-  lifecycle {
-    ignore_changes = [desired_count, task_definition]
-  }
-
-  # Wait for ECS to stabilize
-  deployment_configuration {
-    minimum_healthy_percent = 0
-    maximum_percent         = 200
-  }
-
-  # Ensure task definition is created first
   depends_on = [
     aws_ecs_task_definition.demoapp,
     aws_cloudwatch_log_group.ecs_logs
   ]
+
+  lifecycle {
+    ignore_changes = [desired_count, task_definition]
+  }
 }
