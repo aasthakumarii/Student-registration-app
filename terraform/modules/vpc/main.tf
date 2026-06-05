@@ -57,7 +57,7 @@ resource "aws_security_group" "ec2_sg" {
 
   name = "student-sg"
 
-  description = "Security Group for EC2"
+  description = "Security Group for ECS"
 
   vpc_id = aws_vpc.main.id
 
@@ -72,15 +72,6 @@ resource "aws_security_group" "ec2_sg" {
 
   ingress {
 
-    from_port = 5000
-    to_port   = 5000
-    protocol  = "tcp"
-
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-
     from_port = 443
     to_port   = 443
     protocol  = "tcp"
@@ -88,14 +79,6 @@ resource "aws_security_group" "ec2_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
-
-  from_port = 3306
-  to_port   = 3306
-  protocol  = "tcp"
-
-  cidr_blocks = ["10.0.0.0/16"]
-  }
   egress {
 
     from_port = 0

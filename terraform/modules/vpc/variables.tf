@@ -9,7 +9,3 @@ variable "public_subnet_cidr" {
 variable "availability_zone" {
   type = string
 }
-
-variable "ssh_cidr" {
-  type = string
-}

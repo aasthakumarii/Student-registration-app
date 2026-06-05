@@ -46,6 +46,9 @@ services:
     image: 500782030335.dkr.ecr.ap-south-1.amazonaws.com/student-frontend
     container_name: student_frontend
 
+    environment:
+      BACKEND_HOST: backend
+
     ports:
       - "80:80"
 

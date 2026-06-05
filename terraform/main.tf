@@ -1,34 +1,9 @@
-data "aws_ami" "ubuntu" {
-  most_recent = true
-
-  owners = [
-    "099720109477"
-  ]
-
-  filter {
-    name = "name"
-
-    values = [
-      "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"
-    ]
-  }
-
-  filter {
-    name = "virtualization-type"
-
-    values = [
-      "hvm"
-    ]
-  }
-}
-
 module "vpc" {
   source = "./modules/vpc"
 
   vpc_cidr           = var.vpc_cidr
   public_subnet_cidr = var.public_subnet_cidr
   availability_zone  = var.availability_zone
-  ssh_cidr           = var.ssh_cidr
 }
 
 
@@ -52,4 +27,6 @@ module "ecs" {
   backend_image = "${module.ecr.backend_repo_url}:latest"
 
   frontend_image = "${module.ecr.frontend_repo_url}:latest"
+
+  aws_region = var.aws_region
 }

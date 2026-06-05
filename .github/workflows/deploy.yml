@@ -115,6 +115,7 @@ jobs:
           aws ecs update-service \
             --cluster student-cluster \
             --service student-service \
+            --desired-count 1 \
             --force-new-deployment
 
       - name: Wait For Deployment

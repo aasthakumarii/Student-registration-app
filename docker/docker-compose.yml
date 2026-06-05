@@ -21,7 +21,7 @@ services:
 
   # Node.js Backend API
   backend:
-    build: ./backend
+    build: ../backend
     container_name: student_backend
     environment:
       DB_HOST: mysql
@@ -35,7 +35,7 @@ services:
       mysql:
         condition: service_healthy
     volumes:
-      - ./backend:/app
+      - ../backend:/app
       - /app/node_modules
     networks:
       - student_network
@@ -43,14 +43,16 @@ services:
 
   # Nginx Frontend
   frontend:
-    build: ./frontend
+    build: ../frontend
     container_name: student_frontend
     ports:
       - "80:80"
+    environment:
+      BACKEND_HOST: backend
     depends_on:
       - backend
     volumes:
-      - ./frontend:/usr/share/nginx/html
+      - ../frontend:/usr/share/nginx/html
     networks:
       - student_network
     restart: unless-stopped

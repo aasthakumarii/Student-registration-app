@@ -3,18 +3,7 @@
 // ============================================
 
 function getAPIURL() {
-  // If running locally (localhost/127.0.0.1)
-  if (window.location.hostname === 'localhost' || 
-      window.location.hostname === '127.0.0.1' ||
-      window.location.hostname === '0.0.0.0') {
-    return 'http://localhost:5000/api';
-  }
-  
-  // For EC2 or any other IP/domain
-  // Auto-detect from the URL bar hostname
-  const protocol = window.location.protocol;
-  const hostname = window.location.hostname;
-  return protocol + '//' + hostname + ':5000/api';
+  return '/api';
 }
 
 const API_URL = getAPIURL();
