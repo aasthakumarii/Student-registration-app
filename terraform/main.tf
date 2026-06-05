@@ -31,9 +31,6 @@ module "vpc" {
   ssh_cidr           = var.ssh_cidr
 }
 
-module "iam" {
-  source = "./modules/iam"
-}
 
 module "ecr" {
   source = "./modules/ecr"
@@ -42,13 +39,17 @@ module "ecr" {
   frontend_repo_name = var.frontend_repo_name
 }
 
-module "ec2" {
-  source = "./modules/ec2"
+module "ecs" {
 
-  ami_id                = data.aws_ami.ubuntu.id
-  instance_type         = var.instance_type
-  subnet_id             = module.vpc.public_subnet_id
-  security_group_id     = module.vpc.security_group_id
-  instance_profile_name = module.iam.instance_profile_name
-  key_name              = var.key_name
+  source = "./modules/ecs"
+
+  subnet_ids = [
+    module.vpc.public_subnet_id
+  ]
+
+  security_group_id = module.vpc.security_group_id
+
+  backend_image = "${module.ecr.backend_repo_url}:latest"
+
+  frontend_image = "${module.ecr.frontend_repo_url}:latest"
 }

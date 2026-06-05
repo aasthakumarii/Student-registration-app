@@ -14,8 +14,8 @@ output "instance_profile_name" {
   value = module.iam.instance_profile_name
 }
 
-output "ec2_public_ip" {
-  value = module.ec2.public_ip
+output "ecs_cluster_name" {
+  value = module.ecs.cluster_name
 }
 
 output "backend_ecr_url" {
