@@ -5,9 +5,6 @@ const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 const app = express();
-const DB_NAME = process.env.DB_NAME || 'student_registration';
-const DB_CONNECT_RETRIES = Number(process.env.DB_CONNECT_RETRIES || 30);
-const DB_CONNECT_RETRY_DELAY_MS = Number(process.env.DB_CONNECT_RETRY_DELAY_MS || 2000);
 
 // Middleware
 app.use(cors());
@@ -16,76 +13,51 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
+  host: process.env.DB_HOST || 'mysql',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || 'password123',
-  database: DB_NAME,
+  database: process.env.DB_NAME || 'student_registration',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
 
-function wait(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 // Initialize Database
 async function initializeDatabase() {
-  for (let attempt = 1; attempt <= DB_CONNECT_RETRIES; attempt++) {
-    let bootstrapConnection;
-    let connection;
-
-    try {
-      bootstrapConnection = await mysql.createConnection({
-        host: process.env.DB_HOST || 'localhost',
-        user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || 'password123'
-      });
-
-      await bootstrapConnection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\``);
-      await bootstrapConnection.end();
-      bootstrapConnection = null;
-
-      connection = await pool.getConnection();
-
-      const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS students (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          name VARCHAR(100) NOT NULL,
-          email VARCHAR(100) NOT NULL UNIQUE,
-          phone VARCHAR(15) NOT NULL,
-          dateOfBirth DATE NOT NULL,
-          gender VARCHAR(10) NOT NULL,
-          address VARCHAR(255) NOT NULL,
-          city VARCHAR(50) NOT NULL,
-          state VARCHAR(50) NOT NULL,
-          zipCode VARCHAR(10) NOT NULL,
-          enrollmentDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-      `;
-
-      await connection.query(createTableQuery);
-      console.log('Database initialized successfully!');
-      return;
-    } catch (error) {
-      console.error(`Database initialization attempt ${attempt}/${DB_CONNECT_RETRIES} failed:`, error.message);
-
-      if (attempt === DB_CONNECT_RETRIES) {
-        throw error;
-      }
-
-      await wait(DB_CONNECT_RETRY_DELAY_MS);
-    } finally {
-      if (bootstrapConnection) {
-        await bootstrapConnection.end();
-      }
-
-      if (connection) {
-        connection.release();
-      }
-    }
+  try {
+    const connection = await pool.getConnection();
+    
+    // Create database if it doesn't exist
+    await connection.query(`CREATE DATABASE IF NOT EXISTS student_registration`);
+    
+    // Use the database
+    await connection.changeUser({ database: 'student_registration' });
+    
+    // Create students table
+    const createTableQuery = `
+      CREATE TABLE IF NOT EXISTS students (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(100) NOT NULL UNIQUE,
+        phone VARCHAR(15) NOT NULL,
+        dateOfBirth DATE NOT NULL,
+        gender VARCHAR(10) NOT NULL,
+        address VARCHAR(255) NOT NULL,
+        city VARCHAR(50) NOT NULL,
+        state VARCHAR(50) NOT NULL,
+        zipCode VARCHAR(10) NOT NULL,
+        enrollmentDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `;
+    
+    await connection.query(createTableQuery);
+    connection.release();
+    console.log('Database initialized successfully!');
+  } catch (error) {
+    console.error('Database initialization error:', error);
+    process.exit(1);
   }
 }
 
