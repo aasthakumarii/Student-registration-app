@@ -58,6 +58,16 @@ variable "frontend_image" {
   default = "500782030335.dkr.ecr.ap-south-1.amazonaws.com/frontend-app:latest"
 }
 
+variable "aws_region" {
+  type    = string
+  default = "ap-south-1"
+}
+
+variable "log_group_name" {
+  type    = string
+  default = "/ecs/3Tapp"
+}
+
 variable "service_name" {
   default = "3T-ECS-Service"
 }

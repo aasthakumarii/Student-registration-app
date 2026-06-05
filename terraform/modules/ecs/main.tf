@@ -2,6 +2,11 @@ resource "aws_ecs_cluster" "main" {
   name = var.cluster_name
 }
 
+resource "aws_cloudwatch_log_group" "ecs_logs" {
+  name              = var.log_group_name
+  retention_in_days = 1
+}
+
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "ecsTaskExecutionRole"
 
@@ -50,20 +55,20 @@ resource "aws_ecs_task_definition" "demoapp" {
 
       environment = [
         { name = "MYSQL_ROOT_PASSWORD", value = var.root_pass },
-        { name = "MYSQL_DATABASE",      value = var.mysql_db },
-        { name = "MYSQL_USER",          value = var.mysql_user },
-        { name = "MYSQL_PASSWORD",      value = var.mysql_pass }
+        { name = "MYSQL_DATABASE", value = var.mysql_db },
+        { name = "MYSQL_USER", value = var.mysql_user },
+        { name = "MYSQL_PASSWORD", value = var.mysql_pass }
       ]
 
       logConfiguration = {
-      logDriver = "awslogs"
+        logDriver = "awslogs"
 
-      options = {
-      awslogs-group         = "/ecs/3Tapp"
-      awslogs-region        = "ap-south-1"
-      awslogs-stream-prefix = "ecs"
-    }
-  }
+        options = {
+          awslogs-group         = var.log_group_name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "ecs"
+        }
+      }
     },
 
     {
@@ -78,10 +83,10 @@ resource "aws_ecs_task_definition" "demoapp" {
       ]
 
       environment = [
-        { name = "DB_HOST",     value = var.db_host },
-        { name = "DB_USER",     value = var.db_user },
+        { name = "DB_HOST", value = var.db_host },
+        { name = "DB_USER", value = var.db_user },
         { name = "DB_PASSWORD", value = var.db_pass },
-        { name = "DB_NAME",     value = var.db_name }
+        { name = "DB_NAME", value = var.db_name }
       ]
 
       portMappings = [
@@ -92,14 +97,14 @@ resource "aws_ecs_task_definition" "demoapp" {
       ]
 
       logConfiguration = {
-      logDriver = "awslogs"
+        logDriver = "awslogs"
 
-      options = {
-      awslogs-group         = "/ecs/3Tapp"
-      awslogs-region        = "ap-south-1"
-      awslogs-stream-prefix = "ecs"
-    }
-  }
+        options = {
+          awslogs-group         = var.log_group_name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "ecs"
+        }
+      }
     },
 
     {
@@ -113,17 +118,17 @@ resource "aws_ecs_task_definition" "demoapp" {
         }
       ]
 
-     logConfiguration = {
-     logDriver = "awslogs"
+      logConfiguration = {
+        logDriver = "awslogs"
 
-     options = {
-     awslogs-group         = "/ecs/3Tapp"
-     awslogs-region        = "ap-south-1"
-     awslogs-stream-prefix = "ecs"
-    }
-   }
-  },
-])
+        options = {
+          awslogs-group         = var.log_group_name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "ecs"
+        }
+      }
+    },
+  ])
 }
 resource "aws_ecs_service" "demo_service" {
   name            = var.service_name
