@@ -27,6 +27,4 @@ module "ecs" {
   backend_image = "${module.ecr.backend_repo_url}:latest"
 
   frontend_image = "${module.ecr.frontend_repo_url}:latest"
-
-  aws_region = var.aws_region
 }
