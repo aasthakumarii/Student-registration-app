@@ -97,7 +97,7 @@ resource "aws_ecs_task_definition" "student" {
   environment = [
     {
       name  = "DB_HOST"
-      value = "127.0.0.1"
+      value = "localhost"
     },
     {
       name  = "DB_USER"
@@ -111,10 +111,6 @@ resource "aws_ecs_task_definition" "student" {
       name  = "DB_NAME"
       value = "student_registration"
     },
-    {
-      name  = "PORT"
-      value = "5000"
-    }
   ]
 
   portMappings = [
