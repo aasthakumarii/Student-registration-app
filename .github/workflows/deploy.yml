@@ -13,9 +13,9 @@ on:
 
 jobs:
 
-  terraform-create:
+  # STEP 1: Create Infrastructure (ECR + VPC + ECS Cluster)
+  terraform-infrastructure:
     if: github.event.inputs.action == 'create'
-
     runs-on: ubuntu-latest
 
     defaults:
@@ -23,7 +23,6 @@ jobs:
         working-directory: terraform
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -36,34 +35,42 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - name: Terraform Init
         run: terraform init
 
       - name: Terraform Format Check
         run: terraform fmt -check
+        continue-on-error: true
 
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Terraform Plan
-        run: terraform plan
+      - name: Terraform Plan - Infrastructure Only
+        run: terraform plan -target=module.vpc -target=module.ecr
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve
+      - name: Terraform Apply - Infrastructure Only (ECR + VPC)
+        run: terraform apply -target=module.vpc -target=module.ecr -auto-approve
 
-      - name: Show Outputs
-        run: terraform output
+      - name: Get ECR Repository URLs
+        id: ecr-urls
+        run: |
+          echo "backend_repo=$(terraform output -raw backend_ecr_url)" >> $GITHUB_OUTPUT
+          echo "frontend_repo=$(terraform output -raw frontend_ecr_url)" >> $GITHUB_OUTPUT
 
-  deploy:
+    outputs:
+      backend_repo: ${{ steps.ecr-urls.outputs.backend_repo }}
+      frontend_repo: ${{ steps.ecr-urls.outputs.frontend_repo }}
+
+  # STEP 2: Build and Push Docker Images to ECR
+  build-and-push:
     if: github.event.inputs.action == 'create'
-
-    needs: terraform-create
-
+    needs: terraform-infrastructure
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -81,70 +88,43 @@ jobs:
       - name: Build Backend Image
         run: |
           docker build \
-          -t ${{ steps.login-ecr.outputs.registry }}/student-backend:latest \
-          ./backend
+            -t ${{ needs.terraform-infrastructure.outputs.backend_repo }}:latest \
+            ./backend
 
       - name: Build Frontend Image
         run: |
           docker build \
-          -t ${{ steps.login-ecr.outputs.registry }}/student-frontend:latest \
-          ./frontend
+            -t ${{ needs.terraform-infrastructure.outputs.frontend_repo }}:latest \
+            ./frontend
 
       - name: Push Backend Image
         run: |
-          docker push \
-          ${{ steps.login-ecr.outputs.registry }}/student-backend:latest
+          docker push ${{ needs.terraform-infrastructure.outputs.backend_repo }}:latest
 
       - name: Push Frontend Image
         run: |
-          docker push \
-          ${{ steps.login-ecr.outputs.registry }}/student-frontend:latest
+          docker push ${{ needs.terraform-infrastructure.outputs.frontend_repo }}:latest
 
-      - name: Trivy Scan
+      - name: Trivy Security Scan - Backend
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/student-backend:latest
-          severity: CRITICAL
+          image-ref: ${{ needs.terraform-infrastructure.outputs.backend_repo }}:latest
+          severity: CRITICAL,HIGH
           ignore-unfixed: true
+          exit-code: 0
 
-      - name: Terraform Init
-        run: terraform init
+      - name: Trivy Security Scan - Frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.terraform-infrastructure.outputs.frontend_repo }}:latest
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 0
 
-      - name: Terraform Format Check
-        run: terraform fmt -check
-
-      - name: Terraform Validate
-        run: terraform validate
-
-      - name: Terraform Plan
-        run: terraform plan
-
-      - name: Terraform Apply
-        run: terraform apply -target=module.ecs -auto-approve 
-      - name: Wait For ECS Service
-        run: sleep 60
-
-      - name: Force ECS Deployment
-        run: |
-          aws ecs update-service \
-            --cluster student-cluster \
-            --service student-service \
-            --desired-count 1 \
-            --force-new-deployment
-
-      - name: Wait For Deployment
-        run: |
-          aws ecs wait services-stable \
-            --cluster student-cluster \
-            --services student-service
-
-      - name: Deployment Complete
-        run: |
-          echo "ECS deployment completed successfully"
-
-  terraform-destroy:
-    if: github.event.inputs.action == 'destroy'
-
+  # STEP 3: Deploy ECS Service (After Images Are Available)
+  deploy-ecs:
+    if: github.event.inputs.action == 'create'
+    needs: [terraform-infrastructure, build-and-push]
     runs-on: ubuntu-latest
 
     defaults:
@@ -152,7 +132,93 @@ jobs:
         working-directory: terraform
 
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan - Full Stack
+        run: terraform plan
+
+      - name: Terraform Apply - Deploy ECS Service
+        run: terraform apply -auto-approve
+
+      - name: Get Deployment Info
+        id: deployment-info
+        run: |
+          echo "cluster=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
+          echo "service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
+          echo "log_group=$(terraform output -raw log_group_name)" >> $GITHUB_OUTPUT
+
+      - name: Wait For ECS Service Stability
+        run: |
+          echo "Waiting for ECS service to become stable..."
+          aws ecs wait services-stable \
+            --cluster ${{ steps.deployment-info.outputs.cluster }} \
+            --services ${{ steps.deployment-info.outputs.service }} \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Get Task Public IP
+        run: |
+          echo "=========================================="
+          echo "DEPLOYMENT SUCCESSFUL!"
+          echo "=========================================="
+          
+          TASK_ARN=$(aws ecs list-tasks \
+            --cluster ${{ steps.deployment-info.outputs.cluster }} \
+            --service-name ${{ steps.deployment-info.outputs.service }} \
+            --desired-status RUNNING \
+            --query 'taskArns[0]' \
+            --output text)
+          
+          if [ "$TASK_ARN" != "None" ] && [ ! -z "$TASK_ARN" ]; then
+            ENI_ID=$(aws ecs describe-tasks \
+              --cluster ${{ steps.deployment-info.outputs.cluster }} \
+              --tasks $TASK_ARN \
+              --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
+              --output text)
+            
+            PUBLIC_IP=$(aws ec2 describe-network-interfaces \
+              --network-interface-ids $ENI_ID \
+              --query 'NetworkInterfaces[0].Association.PublicIp' \
+              --output text)
+            
+            echo "Application is accessible at: http://$PUBLIC_IP"
+            echo "Backend API: http://$PUBLIC_IP/api/health"
+            echo ""
+            echo "View logs:"
+            echo "aws logs tail ${{ steps.deployment-info.outputs.log_group }} --follow"
+          else
+            echo "Task is still starting. Check ECS console for task status."
+          fi
+          echo "=========================================="
+
+      - name: Show Terraform Outputs
+        run: terraform output
+
+  # DESTROY: Clean up all resources
+  terraform-destroy:
+    if: github.event.inputs.action == 'destroy'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 

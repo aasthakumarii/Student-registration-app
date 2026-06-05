@@ -54,37 +54,52 @@ resource "aws_route_table_association" "public_assoc" {
 }
 
 resource "aws_security_group" "ec2_sg" {
+  name        = "student-sg"
+  description = "Security Group for ECS Fargate Tasks"
+  vpc_id      = aws_vpc.main.id
 
-  name = "student-sg"
-
-  description = "Security Group for ECS"
-
-  vpc_id = aws_vpc.main.id
-
+  # Allow HTTP traffic from internet
   ingress {
-
-    from_port = 80
-    to_port   = 80
-    protocol  = "tcp"
-
+    description = "HTTP from internet"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Allow HTTPS traffic from internet
   ingress {
-
-    from_port = 443
-    to_port   = 443
-    protocol  = "tcp"
-
+    description = "HTTPS from internet"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Allow backend port for internal communication
+  ingress {
+    description = "Backend API port"
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    self        = true
+  }
+
+  # Allow MySQL port for internal communication
+  ingress {
+    description = "MySQL port"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    self        = true
+  }
+
+  # Allow all outbound traffic
   egress {
-
-    from_port = 0
-    to_port   = 0
-    protocol  = "-1"
-
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 

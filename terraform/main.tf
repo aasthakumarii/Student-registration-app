@@ -15,7 +15,6 @@ module "ecr" {
 }
 
 module "ecs" {
-
   source = "./modules/ecs"
 
   subnet_ids = [
@@ -24,7 +23,14 @@ module "ecs" {
 
   security_group_id = module.vpc.security_group_id
 
-  backend_image = "${module.ecr.backend_repo_url}:latest"
-
+  backend_image  = "${module.ecr.backend_repo_url}:latest"
   frontend_image = "${module.ecr.frontend_repo_url}:latest"
+
+  aws_region = var.aws_region
+
+  # Ensure ECR exists before ECS tries to pull images
+  depends_on = [
+    module.ecr,
+    module.vpc
+  ]
 }

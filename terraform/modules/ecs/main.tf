@@ -1,5 +1,20 @@
 resource "aws_ecs_cluster" "main" {
   name = var.cluster_name
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
+}
+
+# Create CloudWatch Log Group FIRST
+resource "aws_cloudwatch_log_group" "ecs_logs" {
+  name              = "/ecs/student-app"
+  retention_in_days = 7
+
+  tags = {
+    Name = "student-app-logs"
+  }
 }
 
 resource "aws_iam_role" "ecs_task_execution_role" {
@@ -32,43 +47,47 @@ resource "aws_ecs_task_definition" "demoapp" {
 
   execution_role_arn = aws_iam_role.ecs_task_execution_role.arn
 
+  # Ensure log group exists before task definition
+  depends_on = [aws_cloudwatch_log_group.ecs_logs]
+
   container_definitions = jsonencode([
     {
-      name  = "mysql"
-      image = var.mysql_image
+      name      = "mysql"
+      image     = var.mysql_image
+      essential = true
 
       healthCheck = {
         command = [
           "CMD-SHELL",
-          "mysqladmin ping -h localhost -u root -p${var.root_pass} || exit 1"
+          "mysqladmin ping -h 127.0.0.1 -u root -p$MYSQL_ROOT_PASSWORD || exit 1"
         ]
         interval    = 30
         timeout     = 5
         retries     = 3
-        startPeriod = 60
+        startPeriod = 80
       }
 
       environment = [
         { name = "MYSQL_ROOT_PASSWORD", value = var.root_pass },
-        { name = "MYSQL_DATABASE",      value = var.mysql_db },
-        { name = "MYSQL_USER",          value = var.mysql_user },
-        { name = "MYSQL_PASSWORD",      value = var.mysql_pass }
+        { name = "MYSQL_DATABASE", value = var.mysql_db },
+        { name = "MYSQL_USER", value = var.mysql_user },
+        { name = "MYSQL_PASSWORD", value = var.mysql_pass }
       ]
 
       logConfiguration = {
-      logDriver = "awslogs"
-
-      options = {
-      awslogs-group         = "/ecs/3Tapp"
-      awslogs-region        = "us-east-1"
-      awslogs-stream-prefix = "ecs"
-    }
-  }
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs_logs.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "mysql"
+        }
+      }
     },
 
     {
-      name  = "backend"
-      image = var.backend_image
+      name      = "backend"
+      image     = var.backend_image
+      essential = true
 
       dependsOn = [
         {
@@ -78,10 +97,13 @@ resource "aws_ecs_task_definition" "demoapp" {
       ]
 
       environment = [
-        { name = "DB_HOST",     value = var.db_host },
-        { name = "DB_USER",     value = var.db_user },
+        { name = "DB_HOST", value = var.db_host },
+        { name = "DB_USER", value = var.db_user },
         { name = "DB_PASSWORD", value = var.db_pass },
-        { name = "DB_NAME",     value = var.db_name }
+        { name = "DB_NAME", value = var.db_name },
+        { name = "PORT", value = "5000" },
+        { name = "DB_CONNECT_RETRIES", value = "50" },
+        { name = "DB_CONNECT_RETRY_DELAY_MS", value = "3000" }
       ]
 
       portMappings = [
@@ -92,19 +114,26 @@ resource "aws_ecs_task_definition" "demoapp" {
       ]
 
       logConfiguration = {
-      logDriver = "awslogs"
-
-      options = {
-      awslogs-group         = "/ecs/3Tapp"
-      awslogs-region        = "us-east-1"
-      awslogs-stream-prefix = "ecs"
-    }
-  }
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs_logs.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "backend"
+        }
+      }
     },
 
     {
-      name  = "frontend"
-      image = var.frontend_image
+      name      = "frontend"
+      image     = var.frontend_image
+      essential = true
+
+      dependsOn = [
+        {
+          containerName = "backend"
+          condition     = "START"
+        }
+      ]
 
       portMappings = [
         {
@@ -113,17 +142,16 @@ resource "aws_ecs_task_definition" "demoapp" {
         }
       ]
 
-     logConfiguration = {
-     logDriver = "awslogs"
-
-     options = {
-     awslogs-group         = "/ecs/3Tapp"
-     awslogs-region        = "us-east-1"
-     awslogs-stream-prefix = "ecs"
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs_logs.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "frontend"
+        }
+      }
     }
-   }
-  },
-])
+  ])
 }
 resource "aws_ecs_service" "demo_service" {
   name            = var.service_name
@@ -138,4 +166,21 @@ resource "aws_ecs_service" "demo_service" {
     security_groups  = [var.security_group_id]
     assign_public_ip = true
   }
+
+  # Allow external changes without triggering replacement
+  lifecycle {
+    ignore_changes = [desired_count, task_definition]
+  }
+
+  # Wait for ECS to stabilize
+  deployment_configuration {
+    minimum_healthy_percent = 0
+    maximum_percent         = 200
+  }
+
+  # Ensure task definition is created first
+  depends_on = [
+    aws_ecs_task_definition.demoapp,
+    aws_cloudwatch_log_group.ecs_logs
+  ]
 }
